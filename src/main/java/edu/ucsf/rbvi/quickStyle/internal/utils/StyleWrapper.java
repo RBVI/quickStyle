@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Paint;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.cytoscape.model.CyNetwork;
@@ -25,6 +26,9 @@ import org.cytoscape.view.vizmap.mappings.ContinuousMapping;
 
 import org.cytoscape.work.util.ListSingleSelection;
 
+import edu.ucsf.rbvi.quickStyle.internal.model.ColorTunable;
+import edu.ucsf.rbvi.quickStyle.internal.model.SizeTunable;
+
 public class StyleWrapper {
 
 	final CyServiceRegistrar registrar;
@@ -35,9 +39,13 @@ public class StyleWrapper {
 	boolean existingStyle = false;
 
 	double MINIMUM_NODE_SIZE = 10.0;
-	double MAXIMUM_NODE_SIZE = 60.0;
+	double MAXIMUM_NODE_SIZE = 100.0;
+	int MINIMUM_FONT_SIZE = 5;
+	int MAXIMUM_FONT_SIZE = 24;
 	double MINIMUM_EDGE_WIDTH = 1.0;
 	double MAXIMUM_EDGE_WIDTH = 10.0;
+	int MINIMUM_EDGE_TRANSP = 100;
+	int MAXIMUM_EDGE_TRANSP = 255;
 
 	public StyleWrapper(final CyServiceRegistrar registrar) {
 		this.registrar = registrar;
@@ -65,11 +73,13 @@ public class StyleWrapper {
 	}
 
 	public void createMapping(CyTable table, VisualProperty<Paint> property, 
-	                          ListSingleSelection<String> tunable, Palette palette) {
+	                          ColorTunable tunable) {
 
 		if (tunable == null) return;
-		String column = tunable.getSelectedValue();
+		String column = tunable.getValue();
 		if (column == "") return;
+
+		Palette palette = tunable.getPalette();
 
 		Class<?> type = table.getColumn(column).getType();
 
@@ -105,16 +115,14 @@ public class StyleWrapper {
 	}
 
 	public void createMapping(CyTable table, VisualProperty<Double> property, 
-	                          ListSingleSelection<String> tunable) {
-		if (tunable == null) return;
-		String column = tunable.getSelectedValue();
+	                          SizeTunable sizeTunable) {
+
+		if (sizeTunable == null) return;
+
+		String column = sizeTunable.getValue();
 		if (column == "") return;
 
-
 		Class<?> type = table.getColumn(column).getType();
-
-		ContinuousMapping mapping = (ContinuousMapping)
-						continuousFunctionFactory.createVisualMappingFunction(column, type, property);
 
 		// Get the range of the values
 		ContinuousRange<Double> range = getRange(table, column, type);
@@ -125,18 +133,40 @@ public class StyleWrapper {
 			max = max - min;
 
 		if (property.equals(BasicVisualLexicon.NODE_SIZE)) {
+			ContinuousMapping mapping = (ContinuousMapping)
+						continuousFunctionFactory.createVisualMappingFunction(column, type, property);
+			ContinuousMapping extra_mapping = (ContinuousMapping)
+						continuousFunctionFactory.createVisualMappingFunction(column, 
+						                                                      type,
+						                                                      BasicVisualLexicon.NODE_LABEL_FONT_SIZE); 
 			addPoint(mapping, type, 0.0, 
 			         new BoundaryRangeValues<Double>(MINIMUM_NODE_SIZE, MINIMUM_NODE_SIZE, MINIMUM_NODE_SIZE));
 			addPoint(mapping, type, max, 
 			         new BoundaryRangeValues<Double>(MAXIMUM_NODE_SIZE, MAXIMUM_NODE_SIZE, MAXIMUM_NODE_SIZE));
+			addPoint(extra_mapping, type, 0.0, 
+			         new BoundaryRangeValues<Integer>(MINIMUM_FONT_SIZE, MINIMUM_FONT_SIZE, MINIMUM_FONT_SIZE));
+			addPoint(extra_mapping, type, max, 
+			         new BoundaryRangeValues<Integer>(MAXIMUM_FONT_SIZE, MAXIMUM_FONT_SIZE, MAXIMUM_FONT_SIZE));
+			style.addVisualMappingFunction(mapping);
+			style.addVisualMappingFunction(extra_mapping);
 		} else {
+			ContinuousMapping mapping = (ContinuousMapping)
+						continuousFunctionFactory.createVisualMappingFunction(column, type, property);
+			ContinuousMapping extra_mapping = (ContinuousMapping)
+						continuousFunctionFactory.createVisualMappingFunction(column, type, 
+						                                                      BasicVisualLexicon.EDGE_TRANSPARENCY);
 			addPoint(mapping, type, 0.0, 
 			         new BoundaryRangeValues<Double>(MINIMUM_EDGE_WIDTH, MINIMUM_EDGE_WIDTH, MINIMUM_EDGE_WIDTH));
 			addPoint(mapping, type, max, 
 			         new BoundaryRangeValues<Double>(MAXIMUM_EDGE_WIDTH, MAXIMUM_EDGE_WIDTH, MAXIMUM_EDGE_WIDTH));
+			addPoint(extra_mapping, type, 0.0, 
+			         new BoundaryRangeValues<Integer>(MINIMUM_EDGE_TRANSP, MINIMUM_EDGE_TRANSP, MINIMUM_EDGE_TRANSP));
+			addPoint(extra_mapping, type, max, 
+			         new BoundaryRangeValues<Integer>(MAXIMUM_EDGE_TRANSP, MAXIMUM_EDGE_TRANSP, MAXIMUM_EDGE_TRANSP));
+			style.addVisualMappingFunction(mapping);
+			style.addVisualMappingFunction(extra_mapping);
 		}
 
-		style.addVisualMappingFunction(mapping);
 
 	}
 
